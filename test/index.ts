@@ -211,7 +211,7 @@ describe("DelayedJobScheduler contract", function () {
           dummyJob.address,
           "execute(bytes)",
           3,
-          3,
+          5,
           ethers.utils.parseEther("0.1"),
           {
             value: ethers.utils.parseEther("0.1"),
@@ -239,7 +239,7 @@ describe("DelayedJobScheduler contract", function () {
     });
 
     it("Should Fail: Job Expired", async function () {
-      await wait(7);
+      await wait(9);
       await expect(
         jobScheduler.connect(userA).executeJob(1, "0x123456")
       ).to.be.revertedWith("Job Expired");
@@ -263,7 +263,7 @@ describe("DelayedJobScheduler contract", function () {
         .bidJob(1, ethers.utils.parseEther("0.07"), {
           value: ethers.utils.parseEther("0.03"),
         });
-      await wait(4);
+      await wait(3);
       await expect(jobScheduler.connect(userA).executeJob(1, "0x123456"))
         .to.emit(jobScheduler, "JobExecuted")
         .withArgs(1);

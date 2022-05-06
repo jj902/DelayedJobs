@@ -245,12 +245,13 @@ contract DelayedJobScheduler {
         require(job.creatorAddress == msg.sender, "Not Creator");
         require(job.winningBidAmount != 0, "No ether to withdraw.");
 
+        uint256 withdrawlAmount = job.winningBidAmount;
+
         // Set status as cancelled, and winninbBidAmount to zero.
         job.winningBidAmount = 0;
         job.status = Status.CANCELLED;
 
         // Withdraw remaining ether to the creator's address.
-        uint256 withdrawlAmount = job.winningBidAmount;
         (bool success, ) = job.creatorAddress.call{value: withdrawlAmount}("");
         require(success, "Withdraw Failed!");
 
