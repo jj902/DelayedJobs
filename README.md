@@ -12,4 +12,4 @@ Deploy: yarn deploy
 
 ## Smart Contract Address
 
-https://kovan.etherscan.io/address/0x0ABf2526F7822840b4c645c5525048D833a7658a
+https://kovan.etherscan.io/address/0x4f2620e61c4D30CE8A65922A1E0732933A9F4A9f
