@@ -16,6 +16,8 @@ import "@openzeppelin/contracts/utils/Address.sol";
  *  refund previous deposited amount to the previous winner.
  *  Later on, if winner execute the job, it'll send all the money
  *  (reward + collateral = Maximum Reward) to him.
+ *  If job is not executed, creator can withdraw all deposited money,
+ *  and mark it as cancelled.
  */
 contract DelayedJobScheduler {
     using Address for address;
@@ -97,7 +99,7 @@ contract DelayedJobScheduler {
         uint256 delay,
         uint256 timeout,
         uint256 maximumReward
-    ) external payable {
+    ) public payable {
         require(contractAddress.isContract(), "Invalid Contract Address");
         require(delay > 0 && timeout > 0, "Invalid delay or timeout");
         require(maximumReward > 0, "Invalid Maximum Reward");
@@ -143,7 +145,7 @@ contract DelayedJobScheduler {
      *  @param bidAmount Amount of Ether proposed by bidder.
      */
     function bidJob(uint256 jobId, uint256 bidAmount)
-        external
+        public
         payable
         validJobID(jobId)
         pendingJob(jobId)
@@ -171,6 +173,7 @@ contract DelayedJobScheduler {
         (bool transferSuccess, ) = job.winningBidderAddress.call{
             value: winningDeposit
         }("");
+
         if (transferSuccess) {
             emit TransferFailed(job.winningBidderAddress, winningDeposit);
         }
@@ -178,6 +181,7 @@ contract DelayedJobScheduler {
         // Refund offset amount to the job creator.
         uint256 offsetAmount = job.winningBidAmount - bidAmount;
         (transferSuccess, ) = job.creatorAddress.call{value: offsetAmount}("");
+
         if (transferSuccess) {
             emit TransferFailed(job.creatorAddress, offsetAmount);
         }
@@ -191,7 +195,7 @@ contract DelayedJobScheduler {
 
     /*
      *  @notice With this, winner can execute job and get reward!
-     *  @dev It checks if job is in valid status, give all ether(reward + collateral)
+     *  @dev It checks if job is in valid status, and give all ether(reward + collateral)
      *  to the winner, and update the status.
      *  @param jobId ID of job to be executed.
      *  @param args Argument that should be passed to the job which is a function of contract.
@@ -207,15 +211,11 @@ contract DelayedJobScheduler {
             block.timestamp > job.delay + job.createdAt,
             "Job is still bidding"
         );
+        require(
+            block.timestamp < job.delay + job.createdAt + job.timeout,
+            "Job Expired"
+        );
         require(job.winningBidderAddress == msg.sender, "Not Winner.");
-
-        if (
-            block.timestamp > job.delay + job.createdAt + job.timeout ||
-            job.winningBidderAddress == address(0)
-        ) {
-            job.status = Status.CANCELLED;
-            return;
-        }
 
         // execute
         (bool success, ) = job.contractAddress.delegatecall(
@@ -240,7 +240,7 @@ contract DelayedJobScheduler {
      *  @dev It checks if it's creator and if job is not executed, and then refund to the creator.
      *  @param jobId ID of job that's scheduled.
      */
-    function withdraw(uint256 jobId) external payable validJobID(jobId) {
+    function withdraw(uint256 jobId) public payable validJobID(jobId) {
         Job storage job = jobs[jobId];
         require(job.status != Status.EXECUTED, "Job is already executed");
         require(job.creatorAddress == msg.sender, "Not Creator");
