@@ -61,7 +61,7 @@ contract DelayedJobScheduler {
     event TransferFailed(address target, uint256 amount);
     event Withdraw(uint256 jobId, uint256 amount);
 
-    /*
+    /**
      *  @dev This checks if jobId is in valid range
      *  @param jobId ID of Job.
      */
@@ -70,7 +70,7 @@ contract DelayedJobScheduler {
         _;
     }
 
-    /*
+    /**
      *  @dev This checks if job with that id is in PENDING status.
      *  If status is CANCELLED or EXECUTED, bidding and executing job shouldn't be allowed.
      *  @param jobId ID of Job.
@@ -83,12 +83,12 @@ contract DelayedJobScheduler {
         _;
     }
 
-    /*
+    /**
      *  @notice With this, any user can schedule a job which will give reward to winning bidder.
      *  In order to schedule a job, user should deposit ether as specified in maximumReward.
      *  @dev It checks if all inputs are valid, and create a new job.
      *  @param contractAddress The address of contract which will be called by bidder.
-     *  @param mothodAbi The string format of function in contract which will be called by bidder.
+     *  @param methodAbi The string format of function in contract which will be called by bidder.
      *  @param delay The Amount of time(in seconds) that accept bidders after it's created.
      *  @param timeout The Amount of time(in seconds) that winning bidder can execute the job.
      *  @param maximumReward The Maximum amount of ether that creator will give winning bidder as a reward.
@@ -136,7 +136,7 @@ contract DelayedJobScheduler {
         );
     }
 
-    /*
+    /**
      *  @notice With this, bidders can bid to the job with proposed bid amount.
      *  @dev It checks if job is in valid status, checks collateral bidder submit,
      *  and determine new winner, refund to the previous winner, and refund
@@ -193,7 +193,7 @@ contract DelayedJobScheduler {
         emit NewWinner(jobId, job.winningBidderAddress, job.winningBidAmount);
     }
 
-    /*
+    /**
      *  @notice With this, winner can execute job and get reward!
      *  @dev It checks if job is in valid status, and give all ether(reward + collateral)
      *  to the winner, and update the status.
@@ -202,7 +202,6 @@ contract DelayedJobScheduler {
      */
     function executeJob(uint256 jobId, bytes calldata args)
         external
-        payable
         validJobID(jobId)
         pendingJob(jobId)
     {
@@ -235,24 +234,25 @@ contract DelayedJobScheduler {
         emit JobExecuted(jobId);
     }
 
-    /*
+    /**
      *  @notice This allows job creator to withdraw remaining ether in case of it's not executed.
      *  @dev It checks if it's creator and if job is not executed, and then refund to the creator.
      *  @param jobId ID of job that's scheduled.
      */
-    function withdraw(uint256 jobId) public payable validJobID(jobId) {
+    function withdraw(uint256 jobId) public validJobID(jobId) {
         Job storage job = jobs[jobId];
         require(job.status != Status.EXECUTED, "Job is already executed");
         require(job.creatorAddress == msg.sender, "Not Creator");
         require(job.winningBidAmount != 0, "No ether to withdraw.");
 
+        // Set status as cancelled, and winninbBidAmount to zero.
+        job.winningBidAmount = 0;
+        job.status = Status.CANCELLED;
+
         // Withdraw remaining ether to the creator's address.
         uint256 withdrawlAmount = job.winningBidAmount;
         (bool success, ) = job.creatorAddress.call{value: withdrawlAmount}("");
         require(success, "Withdraw Failed!");
-
-        job.winningBidAmount = 0;
-        job.status = Status.CANCELLED;
 
         emit Withdraw(jobId, withdrawlAmount);
     }
