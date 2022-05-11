@@ -168,27 +168,30 @@ contract DelayedJobScheduler {
         // We just need winning bid, not all bid. If it's not winning bid, we should revert here.
         require(bidAmount < job.winningBidAmount, "You bid is declined.");
 
+        address payable previousWinner = job.winningBidderAddress;
+        uint256 previousBidAmount = job.winningBidAmount;
+
+        // Assign New Winner
+        job.winningBidderAddress = payable(msg.sender);
+        job.winningBidAmount = bidAmount;
+
         // Refund prevoius winningBidAmount to previous winner.
-        uint256 winningDeposit = job.maximumReward - job.winningBidAmount;
-        (bool transferSuccess, ) = job.winningBidderAddress.call{
-            value: winningDeposit
-        }("");
+        uint256 winningDeposit = job.maximumReward - previousBidAmount;
+        (bool transferSuccess, ) = previousWinner.call{value: winningDeposit}(
+            ""
+        );
 
         if (!transferSuccess) {
-            emit TransferFailed(job.winningBidderAddress, winningDeposit);
+            emit TransferFailed(previousWinner, winningDeposit);
         }
 
         // Refund offset amount to the job creator.
-        uint256 offsetAmount = job.winningBidAmount - bidAmount;
+        uint256 offsetAmount = previousBidAmount - bidAmount;
         (transferSuccess, ) = job.creatorAddress.call{value: offsetAmount}("");
 
         if (!transferSuccess) {
             emit TransferFailed(job.creatorAddress, offsetAmount);
         }
-
-        // Assign New Winner
-        job.winningBidderAddress = payable(msg.sender);
-        job.winningBidAmount = bidAmount;
 
         emit NewWinner(jobId, job.winningBidderAddress, job.winningBidAmount);
     }
@@ -244,6 +247,10 @@ contract DelayedJobScheduler {
         require(job.status != Status.EXECUTED, "Job is already executed");
         require(job.creatorAddress == msg.sender, "Not Creator");
         require(job.winningBidAmount != 0, "No ether to withdraw.");
+        require(
+            block.timestamp >= job.delay + job.createdAt + job.timeout,
+            "Job isn't expired yet."
+        );
 
         uint256 withdrawlAmount = job.winningBidAmount;
 

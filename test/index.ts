@@ -127,7 +127,7 @@ describe("DelayedJobScheduler contract", function () {
           dummyJob.address,
           "execute(bytes)",
           3,
-          10,
+          3,
           ethers.utils.parseEther("0.1"),
           {
             value: ethers.utils.parseEther("0.1"),
@@ -184,6 +184,7 @@ describe("DelayedJobScheduler contract", function () {
     });
 
     it("Should Fail: Already Executed or Cancelled", async function () {
+      await wait(7);
       await jobScheduler.connect(creator).withdraw(1);
       await expect(
         jobScheduler.connect(userB).bidJob(1, ethers.utils.parseEther("0.07"), {
@@ -226,6 +227,7 @@ describe("DelayedJobScheduler contract", function () {
     });
 
     it("Should Fail: Already Executed or Cancelled", async function () {
+      await wait(9);
       await jobScheduler.connect(creator).withdraw(1);
       await expect(
         jobScheduler.connect(userA).executeJob(1, "0x123456")
@@ -278,7 +280,7 @@ describe("DelayedJobScheduler contract", function () {
           dummyJob.address,
           "execute(bytes)",
           3,
-          10,
+          5,
           ethers.utils.parseEther("0.1"),
           {
             value: ethers.utils.parseEther("0.1"),
@@ -313,13 +315,21 @@ describe("DelayedJobScheduler contract", function () {
     });
 
     it("Should Fail: No ether to withdraw.", async function () {
+      await wait(9);
       await jobScheduler.connect(creator).withdraw(1);
       await expect(
         jobScheduler.connect(creator).withdraw(1)
       ).to.be.revertedWith("No ether to withdraw.");
     });
 
+    it("Should Fail: Job isn't expired yet.", async function () {
+      await expect(
+        jobScheduler.connect(creator).withdraw(1)
+      ).to.be.revertedWith("Job isn't expired yet.");
+    });
+
     it("Should Success", async function () {
+      await wait(9);
       await expect(jobScheduler.connect(creator).withdraw(1))
         .to.emit(jobScheduler, "Withdraw")
         .withArgs(1, ethers.utils.parseEther("0.1"));
