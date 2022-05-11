@@ -174,7 +174,7 @@ contract DelayedJobScheduler {
             value: winningDeposit
         }("");
 
-        if (transferSuccess) {
+        if (!transferSuccess) {
             emit TransferFailed(job.winningBidderAddress, winningDeposit);
         }
 
@@ -182,7 +182,7 @@ contract DelayedJobScheduler {
         uint256 offsetAmount = job.winningBidAmount - bidAmount;
         (transferSuccess, ) = job.creatorAddress.call{value: offsetAmount}("");
 
-        if (transferSuccess) {
+        if (!transferSuccess) {
             emit TransferFailed(job.creatorAddress, offsetAmount);
         }
 
@@ -227,7 +227,7 @@ contract DelayedJobScheduler {
         (bool transferSuccess, ) = job.winningBidderAddress.call{
             value: job.maximumReward
         }("");
-        if (transferSuccess) {
+        if (!transferSuccess) {
             emit TransferFailed(job.winningBidderAddress, job.maximumReward);
         }
 
