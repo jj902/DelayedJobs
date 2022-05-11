@@ -8,8 +8,10 @@ Compile: yarn compile
 
 Testing: yarn test
 
+Code Coverage: yarn coverage
+
 Deploy: yarn deploy
 
 ## Smart Contract Address
 
-https://kovan.etherscan.io/address/0xcBb85B63d1665B49391FfC5a4256de9fBe814eab
+https://kovan.etherscan.io/address/0x4d33Fd4a60aAAd2CdC6C3E05E8d94A4a6FBbc445
