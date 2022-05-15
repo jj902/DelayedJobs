@@ -2,6 +2,7 @@
 pragma solidity ^0.8.0;
 
 import "@openzeppelin/contracts/utils/Address.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
 /**
  *  @author Jeremy Jin
@@ -19,7 +20,7 @@ import "@openzeppelin/contracts/utils/Address.sol";
  *  If job is not executed, creator can withdraw all deposited money,
  *  and mark it as cancelled.
  */
-contract DelayedJobScheduler {
+contract DelayedJobScheduler is ReentrancyGuard {
     using Address for address;
 
     // Status of Job
@@ -59,7 +60,7 @@ contract DelayedJobScheduler {
     event NewWinner(uint256 jobID, address winnerAddress, uint256 bidAmount);
     event JobExecuted(uint256 jobID);
     event TransferFailed(address target, uint256 amount);
-    event Withdraw(uint256 jobId, uint256 amount);
+    event Withdraw(uint256 jobId);
 
     /**
      *  @dev This checks if jobId is in valid range
@@ -147,6 +148,7 @@ contract DelayedJobScheduler {
     function bidJob(uint256 jobId, uint256 bidAmount)
         public
         payable
+        nonReentrant
         validJobID(jobId)
         pendingJob(jobId)
     {
@@ -185,14 +187,6 @@ contract DelayedJobScheduler {
             emit TransferFailed(previousWinner, winningDeposit);
         }
 
-        // Refund offset amount to the job creator.
-        uint256 offsetAmount = previousBidAmount - bidAmount;
-        (transferSuccess, ) = job.creatorAddress.call{value: offsetAmount}("");
-
-        if (!transferSuccess) {
-            emit TransferFailed(job.creatorAddress, offsetAmount);
-        }
-
         emit NewWinner(jobId, job.winningBidderAddress, job.winningBidAmount);
     }
 
@@ -205,6 +199,7 @@ contract DelayedJobScheduler {
      */
     function executeJob(uint256 jobId, bytes calldata args)
         external
+        nonReentrant
         validJobID(jobId)
         pendingJob(jobId)
     {
@@ -234,6 +229,14 @@ contract DelayedJobScheduler {
             emit TransferFailed(job.winningBidderAddress, job.maximumReward);
         }
 
+        // Refund offset amount to the job creator.
+        uint256 offsetAmount = job.maximumReward - job.winningBidAmount;
+        (transferSuccess, ) = job.creatorAddress.call{value: offsetAmount}("");
+
+        if (!transferSuccess) {
+            emit TransferFailed(job.creatorAddress, offsetAmount);
+        }
+
         emit JobExecuted(jobId);
     }
 
@@ -242,7 +245,7 @@ contract DelayedJobScheduler {
      *  @dev It checks if it's creator and if job is not executed, and then refund to the creator.
      *  @param jobId ID of job that's scheduled.
      */
-    function withdraw(uint256 jobId) public validJobID(jobId) {
+    function withdraw(uint256 jobId) public nonReentrant validJobID(jobId) {
         Job storage job = jobs[jobId];
         require(job.status != Status.EXECUTED, "Job is already executed");
         require(job.creatorAddress == msg.sender, "Not Creator");
@@ -252,16 +255,15 @@ contract DelayedJobScheduler {
             "Job isn't expired yet."
         );
 
-        uint256 withdrawlAmount = job.winningBidAmount;
-
         // Set status as cancelled, and winninbBidAmount to zero.
-        job.winningBidAmount = 0;
         job.status = Status.CANCELLED;
 
         // Withdraw remaining ether to the creator's address.
-        (bool success, ) = job.creatorAddress.call{value: withdrawlAmount}("");
+        (bool success, ) = job.creatorAddress.call{value: job.maximumReward}(
+            ""
+        );
         require(success, "Withdraw Failed!");
 
-        emit Withdraw(jobId, withdrawlAmount);
+        emit Withdraw(jobId);
     }
 }
